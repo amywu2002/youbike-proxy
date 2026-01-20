@@ -1,37 +1,35 @@
 
-// 使用 Node.js Runtime（Vercel API Route 支援）
-export const config = { runtime: "nodejs" };
+// 檔名：api/tycg.js
+// 說明：明確用 Node.js Serverless Function 介面（req, res）
 
-export default async function handler(req) {
+export default async function handler(req, res) {
+  // CORS 預檢
+  if (req.method === "OPTIONS") {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.setHeader("Access-Control-Max-Age", "86400");
+    res.status(204).end();
+    return;
+  }
+
   const TARGET =
-    "https://opendata.tycg.gov.tw/api/v1/dataset.datastore?rid=a1b4714b-3b75-4ff8-a8f2-cc377e4eaa0f&limit=10000";
+    "https://opendata.tycg.gov.tw/api/v1/dataset.datastore" +
+    "?rid=a1b4714b-3b75-4ff8-a8f2-cc377e4eaa0f&limit=10000";
 
   try {
     const r = await fetch(TARGET, { redirect: "follow" });
+    const text = await r.text(); // 直接轉交字串（來源已是 JSON）
 
-    // 桃園資料有時會回 HTML 或錯誤頁，所以先用 text() 再交給前端解析
-    const body = await r.text();
-
-    return new Response(body, {
-      status: r.status,
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type"
-      }
-    });
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.status(r.status).send(text);
   } catch (err) {
-    // 500 處理
-    return new Response(
-      JSON.stringify({ error: String(err) }),
-      {
-        status: 500,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*"
-        }
-      }
-    );
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res
+      .status(500)
+      .json({ error: String(err) });
   }
 }
