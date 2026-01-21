@@ -18,7 +18,7 @@ export default async function handler(req, res) {
   const TY_NEW =
     "https://opendata.tycg.gov.tw/api/v1/dataset.datastore?rid=a1b4714b-3b75-4ff8-a8f2-cc377e4eaa0f&limit=10000";
   const TY_OLD =
-    "https://data.tycg.gov.tw/api/v1/rest/datastore/a1b4714b-3b75-4ff8-a8f2-cc377e4eaa0f?format=json";
+    "https://data.tycg.gov.tw/api/v1/rest/datastore/a1b4714b-3b75-4ff8-a8f2-cc377e4eaa0f?format=json&limit=10000";
 
   const H = {
     "user-agent":
@@ -49,8 +49,12 @@ export default async function handler(req, res) {
 
   try {
     // 先新平台；失敗/非 2xx → 再舊平台
-    let r = await fetchWithTimeout(TY_NEW).catch(() => null);
-    if (!r || !r.ok) r = await fetchWithTimeout(TY_OLD);
+    let url = TY_NEW;
+    let r = await fetchWithTimeout(url).catch(() => null);
+    if (!r || !r.ok) {
+      url = TY_OLD;
+      r = await fetchWithTimeout(url);
+    }
 
     const text = await r.text();
 
@@ -85,7 +89,6 @@ export default async function handler(req, res) {
             records = inner.result.records;
           }
         } catch {
-          // payload 非 JSON → 保持空陣列
           records = [];
         }
       }
@@ -93,14 +96,14 @@ export default async function handler(req, res) {
 
     const normalized = { result: { records } };
 
-    // 回傳 JSON + CORS
+    // 回傳 JSON + CORS + 額外標示實際來源
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.setHeader("X-Source", url);
     res.status(200).send(JSON.stringify(normalized));
   } catch (err) {
-    // 失敗時也回 JSON（含錯誤細節，便於前端與你排查）
     res.setHeader("Access-Control-Allow-Origin", "*");
     res
       .status(500)
